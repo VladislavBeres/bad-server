@@ -206,10 +206,28 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
-        const options = {
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+
+        // Преобразуем page и limit в числа
+        const pageNum = Number(page)
+        const limitNum = Number(limit)
+
+        // Проверка корректности чисел
+        if (Number.isNaN(pageNum) || pageNum < 1) {
+            return next(
+                new BadRequestError('page должен быть положительным числом')
+            )
         }
+        if (Number.isNaN(limitNum) || limitNum < 1) {
+            return next(
+                new BadRequestError('limit должен быть положительным числом')
+            )
+        }
+
+        // Нормализуем лимит (макс. 10)
+        const normalizedLimit = Math.min(limitNum, 10)
+        const normalizedPage = pageNum
+
+        const skip = (normalizedPage - 1) * normalizedLimit
 
         const user = await User.findById(userId)
             .populate({
@@ -258,17 +276,18 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / normalizedLimit)
 
-        orders = orders.slice(options.skip, options.skip + options.limit)
+        // Срезаем массив заказов по нормализованному skip и limit
+        orders = orders.slice(skip, skip + normalizedLimit)
 
         return res.send({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: normalizedPage, // теперь правильная текущая страница
+                pageSize: normalizedLimit, // теперь правильный pageSize
             },
         })
     } catch (error) {
