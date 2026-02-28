@@ -28,7 +28,14 @@ orderRouter.post(
     createOrder
 )
 
-orderRouter.get('/all', auth, searchLimiter, validateSearchQuery, getOrders)
+orderRouter.get(
+    '/all',
+    auth,
+    roleGuardMiddleware(Role.Admin),
+    searchLimiter,
+    validateSearchQuery,
+    getOrders
+)
 orderRouter.get(
     '/all/me',
     auth,
