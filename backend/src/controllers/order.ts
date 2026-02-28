@@ -46,9 +46,8 @@ export const getOrders = async (
                 new BadRequestError('limit должен быть положительным числом')
             )
         }
-        if (limitNum > 10) {
-            return next(new BadRequestError('limit не может быть больше 10'))
-        }
+        const normalizedLimit = Math.min(limitNum, 10)
+        const normalizedPage = pageNum
 
         if (status) {
             if (typeof status === 'object') {
@@ -166,8 +165,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (normalizedPage - 1) * normalizedLimit },
+            { $limit: normalizedLimit },
             {
                 $group: {
                     _id: '$_id',
@@ -183,15 +182,15 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / normalizedLimit)
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: normalizedPage,
+                pageSize: normalizedLimit,
             },
         })
     } catch (error) {
