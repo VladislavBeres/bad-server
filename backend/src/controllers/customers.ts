@@ -48,8 +48,9 @@ export const getCustomers = async (
                 new BadRequestError('limit должен быть положительным числом')
             )
         }
-        const normalizedLimit = Math.min(limitNum, 10)
-        const normalizedPage = pageNum
+        if (limitNum > 10) {
+            return next(new BadRequestError('limit не может быть больше 10'))
+        }
 
         // Валидация дат и чисел
         if (registrationDateFrom) {
@@ -201,8 +202,8 @@ export const getCustomers = async (
 
         const options = {
             sort,
-            skip: (normalizedPage - 1) * normalizedLimit,
-            limit: normalizedLimit,
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const users = await User.find(filters, null, options).populate([
@@ -222,15 +223,15 @@ export const getCustomers = async (
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / normalizedLimit)
+        const totalPages = Math.ceil(totalUsers / Number(limit))
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: normalizedPage,
-                pageSize: normalizedLimit,
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {

@@ -46,8 +46,9 @@ export const getOrders = async (
                 new BadRequestError('limit должен быть положительным числом')
             )
         }
-        const normalizedLimit = Math.min(limitNum, 10)
-        const normalizedPage = pageNum
+        if (limitNum > 10) {
+            return next(new BadRequestError('limit не может быть больше 10'))
+        }
 
         if (status) {
             if (typeof status === 'object') {
@@ -165,8 +166,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (normalizedPage - 1) * normalizedLimit },
-            { $limit: normalizedLimit },
+            { $skip: (Number(page) - 1) * Number(limit) },
+            { $limit: Number(limit) },
             {
                 $group: {
                     _id: '$_id',
@@ -182,15 +183,15 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / normalizedLimit)
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: normalizedPage,
-                pageSize: normalizedLimit,
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -206,28 +207,10 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
-
-        // Преобразуем page и limit в числа
-        const pageNum = Number(page)
-        const limitNum = Number(limit)
-
-        // Проверка корректности чисел
-        if (Number.isNaN(pageNum) || pageNum < 1) {
-            return next(
-                new BadRequestError('page должен быть положительным числом')
-            )
+        const options = {
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
-        if (Number.isNaN(limitNum) || limitNum < 1) {
-            return next(
-                new BadRequestError('limit должен быть положительным числом')
-            )
-        }
-
-        // Нормализуем лимит (макс. 10)
-        const normalizedLimit = Math.min(limitNum, 10)
-        const normalizedPage = pageNum
-
-        const skip = (normalizedPage - 1) * normalizedLimit
 
         const user = await User.findById(userId)
             .populate({
@@ -276,18 +259,17 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / normalizedLimit)
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
-        // Срезаем массив заказов по нормализованному skip и limit
-        orders = orders.slice(skip, skip + normalizedLimit)
+        orders = orders.slice(options.skip, options.skip + options.limit)
 
         return res.send({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: normalizedPage, // теперь правильная текущая страница
-                pageSize: normalizedLimit, // теперь правильный pageSize
+                currentPage: Number(page),
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
