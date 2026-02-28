@@ -34,20 +34,23 @@ export const getOrders = async (
 
         // Проверка page и limit
         const pageNum = Number(page)
-        const limitNum = Number(limit)
+        let limitNum = Number(limit)
 
         if (Number.isNaN(pageNum) || pageNum < 1) {
             return next(
                 new BadRequestError('page должен быть положительным числом')
             )
         }
+
         if (Number.isNaN(limitNum) || limitNum < 1) {
             return next(
                 new BadRequestError('limit должен быть положительным числом')
             )
         }
+
+        // Нормализуем limit, если он больше 10
         if (limitNum > 10) {
-            return next(new BadRequestError('limit не может быть больше 10'))
+            limitNum = 10
         }
 
         if (status) {
@@ -166,8 +169,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (pageNum - 1) * limitNum },
+            { $limit: limitNum },
             {
                 $group: {
                     _id: '$_id',
@@ -183,15 +186,15 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limitNum)
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limitNum,
             },
         })
     } catch (error) {
@@ -199,6 +202,7 @@ export const getOrders = async (
     }
 }
 
+// Остальные функции остаются без изменений
 export const getOrdersCurrentUser = async (
     req: Request,
     res: Response,
@@ -207,9 +211,30 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
+
+        const pageNum = Number(page)
+        let limitNum = Number(limit)
+
+        if (Number.isNaN(pageNum) || pageNum < 1) {
+            return next(
+                new BadRequestError('page должен быть положительным числом')
+            )
+        }
+
+        if (Number.isNaN(limitNum) || limitNum < 1) {
+            return next(
+                new BadRequestError('limit должен быть положительным числом')
+            )
+        }
+
+        // Нормализуем limit для текущего пользователя
+        if (limitNum > 10) {
+            limitNum = 10
+        }
+
         const options = {
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (pageNum - 1) * limitNum,
+            limit: limitNum,
         }
 
         const user = await User.findById(userId)
@@ -259,7 +284,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limitNum)
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -268,8 +293,8 @@ export const getOrdersCurrentUser = async (
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limitNum,
             },
         })
     } catch (error) {

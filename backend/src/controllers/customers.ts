@@ -1,11 +1,11 @@
 import { NextFunction, Request, Response } from 'express'
-import { FilterQuery, Types } from 'mongoose' // ← ДОБАВИЛ Types
-import BadRequestError from '../errors/bad-request-error' // ← ДОБАВИЛ
+import { FilterQuery, Types } from 'mongoose'
+import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
-import { filterAllowedFields } from '../utils/filterAllowedFields' // ← ИСПРАВИЛ
+import { filterAllowedFields } from '../utils/filterAllowedFields'
 
 // TODO: Добавить guard admin
 // eslint-disable-next-line max-len
@@ -36,20 +36,23 @@ export const getCustomers = async (
 
         // Проверка page и limit
         const pageNum = Number(page)
-        const limitNum = Number(limit)
+        let limitNum = Number(limit)
 
         if (Number.isNaN(pageNum) || pageNum < 1) {
             return next(
                 new BadRequestError('page должен быть положительным числом')
             )
         }
+
         if (Number.isNaN(limitNum) || limitNum < 1) {
             return next(
                 new BadRequestError('limit должен быть положительным числом')
             )
         }
+
+        // Нормализуем limit, если он больше 10
         if (limitNum > 10) {
-            return next(new BadRequestError('limit не может быть больше 10'))
+            limitNum = 10
         }
 
         // Валидация дат и чисел
@@ -77,7 +80,7 @@ export const getCustomers = async (
                     )
                 )
             }
-            const endOfDay = date
+            const endOfDay = new Date(date)
             endOfDay.setHours(23, 59, 59, 999)
             filters.createdAt = {
                 ...filters.createdAt,
@@ -109,7 +112,7 @@ export const getCustomers = async (
                     )
                 )
             }
-            const endOfDay = date
+            const endOfDay = new Date(date)
             endOfDay.setHours(23, 59, 59, 999)
             filters.lastOrderDate = {
                 ...filters.lastOrderDate,
@@ -177,7 +180,7 @@ export const getCustomers = async (
             // Ищем заказы по адресу доставки
             const orders = await Order.find(
                 {
-                    deliveryAddress: { $regex: searchRegex }, // Безопаснее
+                    deliveryAddress: { $regex: searchRegex },
                 },
                 '_id'
             )
@@ -202,8 +205,8 @@ export const getCustomers = async (
 
         const options = {
             sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (pageNum - 1) * limitNum,
+            limit: limitNum,
         }
 
         const users = await User.find(filters, null, options).populate([
@@ -223,15 +226,15 @@ export const getCustomers = async (
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalPages = Math.ceil(totalUsers / limitNum)
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limitNum,
             },
         })
     } catch (error) {
