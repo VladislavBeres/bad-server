@@ -48,8 +48,8 @@ export const getCustomers = async (
                 new BadRequestError('limit должен быть положительным числом')
             )
         }
-        if (limitNum > 100) {
-            return next(new BadRequestError('limit не может быть больше 100'))
+        if (limitNum > 10) {
+            return next(new BadRequestError('limit не может быть больше 10'))
         }
 
         // Валидация дат и чисел
