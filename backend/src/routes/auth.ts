@@ -13,6 +13,7 @@ import { verifyCsrf } from '../middlewares/csrf'
 
 const authRouter = Router()
 
+// Endpoint для получения CSRF токена
 authRouter.get('/csrf-token', (req, res) => {
     res.json({ csrfToken: req.csrfToken?.() })
 })
