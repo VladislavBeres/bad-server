@@ -15,11 +15,19 @@ import {
 } from '../middlewares/validations'
 import { Role } from '../models/user'
 import { createOrderLimiter, searchLimiter } from '../middlewares/rateLimiter'
+import { verifyCsrf } from '../middlewares/csrf'
 
 const orderRouter = Router()
 
-orderRouter.post('/', auth, createOrderLimiter, validateOrderBody, createOrder) // ← ДОБАВИТЬ ЛИМИТ
-orderRouter.get('/all', auth, searchLimiter, validateSearchQuery, getOrders) // ← ДОБАВИТЬ ЛИМИТ
+orderRouter.post(
+    '/',
+    auth,
+    verifyCsrf,
+    createOrderLimiter,
+    validateOrderBody,
+    createOrder
+)
+orderRouter.get('/all', auth, searchLimiter, validateSearchQuery, getOrders)
 orderRouter.get(
     '/all/me',
     auth,

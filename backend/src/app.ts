@@ -11,6 +11,7 @@ import errorHandler from './middlewares/error-handler'
 import { globalLimiter } from './middlewares/rateLimiter'
 import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
+import { generateCsrf } from './middlewares/csrf'
 
 const { PORT = 3000 } = process.env
 const app = express()
@@ -51,7 +52,8 @@ app.use(globalLimiter)
 app.use(urlencoded({ extended: true, limit: MAX_JSON_SIZE }))
 app.use(json({ limit: MAX_JSON_SIZE }))
 
-// app.options('*', cors())
+app.use(generateCsrf)
+
 app.use(routes)
 app.use(errors())
 app.use(errorHandler)

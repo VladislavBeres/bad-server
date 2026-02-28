@@ -9,16 +9,16 @@ import {
     updateCurrentUser,
 } from '../controllers/auth'
 import auth from '../middlewares/auth'
-import { authLimiter } from '../middlewares/rateLimiter'
+import { verifyCsrf } from '../middlewares/csrf'
 
 const authRouter = Router()
 
 authRouter.get('/user', auth, getCurrentUser)
-authRouter.patch('/me', auth, updateCurrentUser)
+authRouter.patch('/me', auth, verifyCsrf, updateCurrentUser)
 authRouter.get('/user/roles', auth, getCurrentUserRoles)
-authRouter.post('/login', authLimiter, login)
+authRouter.post('/login', login)
 authRouter.get('/token', refreshAccessToken)
 authRouter.get('/logout', logout)
-authRouter.post('/register', authLimiter, register)
+authRouter.post('/register', register)
 
 export default authRouter
