@@ -16,3 +16,11 @@ docker compose up -d
 6. Админка находится по адресу http://localhost/admin/
 
 ## Ссылка на GitHub-репозиторий https://github.com/VladislavBeres/bad-server
+
+Владислав Берестюк 39 когорта курса фулстек-разработчик
+
+docker-compose stop
+
+docker-compose start
+
+docker-compose restart

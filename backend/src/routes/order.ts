@@ -9,14 +9,24 @@ import {
     updateOrder,
 } from '../controllers/order'
 import auth, { roleGuardMiddleware } from '../middlewares/auth'
-import { validateOrderBody } from '../middlewares/validations'
+import {
+    validateOrderBody,
+    validateSearchQuery,
+} from '../middlewares/validations'
 import { Role } from '../models/user'
+import { createOrderLimiter, searchLimiter } from '../middlewares/rateLimiter'
 
 const orderRouter = Router()
 
-orderRouter.post('/', auth, validateOrderBody, createOrder)
-orderRouter.get('/all', auth, getOrders)
-orderRouter.get('/all/me', auth, getOrdersCurrentUser)
+orderRouter.post('/', auth, createOrderLimiter, validateOrderBody, createOrder) // ← ДОБАВИТЬ ЛИМИТ
+orderRouter.get('/all', auth, searchLimiter, validateSearchQuery, getOrders) // ← ДОБАВИТЬ ЛИМИТ
+orderRouter.get(
+    '/all/me',
+    auth,
+    searchLimiter,
+    validateSearchQuery,
+    getOrdersCurrentUser
+)
 orderRouter.get(
     '/:orderNumber',
     auth,
