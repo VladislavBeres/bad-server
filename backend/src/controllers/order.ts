@@ -67,7 +67,7 @@ export const getOrders = async (
                 )
             }
             filters.totalAmount = {
-                ...filters.totalAmount,
+                ...(filters.totalAmount || {}),
                 $gte: num,
             }
         }
@@ -80,7 +80,7 @@ export const getOrders = async (
                 )
             }
             filters.totalAmount = {
-                ...filters.totalAmount,
+                ...(filters.totalAmount || {}),
                 $lte: num,
             }
         }
@@ -244,9 +244,11 @@ export const getOrdersCurrentUser = async (
 
             orders = orders.filter((order) => {
                 // eslint-disable-next-line max-len
-                const matchesProductTitle = order.products.some((product) =>
-                    productIds.some((id) => id.equals(product._id))
-                )
+                const matchesProductTitle =
+                    Array.isArray(order.products) &&
+                    order.products.some((product) =>
+                        productIds.some((id) => id.equals(product._id))
+                    )
                 // eslint-disable-next-line max-len
                 const matchesOrderNumber =
                     !Number.isNaN(searchNumber) &&
@@ -322,10 +324,7 @@ export const getOrderCurrentUserByNumber = async (
                     )
             )
         if (!order.customer._id.equals(userId)) {
-            // Если нет доступа не возвращаем 403, а отдаем 404
-            return next(
-                new NotFoundError('Заказ по заданному id отсутствует в базе')
-            )
+            return res.status(403).json({ message: 'Нет доступа к заказу' })
         }
         return res.status(200).json(order)
     } catch (error) {
@@ -360,7 +359,7 @@ export const createOrder = async (
             return basket.push(product)
         })
         const totalBasket = basket.reduce((a, c) => a + c.price, 0)
-        if (totalBasket !== total) {
+        if (totalBasket !== Number(total)) {
             return next(new BadRequestError('Неверная сумма заказа'))
         }
 
