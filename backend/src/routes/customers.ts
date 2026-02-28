@@ -11,13 +11,7 @@ import { Role } from '../models/user'
 
 const customerRouter = Router()
 
-customerRouter.get(
-    '/',
-    auth,
-    roleGuardMiddleware(Role.Admin),
-    validateSearchQuery,
-    getCustomers
-)
+customerRouter.get('/', auth, validateSearchQuery, getCustomers)
 customerRouter.get(
     '/:id',
     auth,
