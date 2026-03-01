@@ -151,6 +151,6 @@ export const validateSearchQuery = celebrate({
             .optional()
             .default(1)
             .custom((value) => (value === 0 ? 1 : value)),
-        limit: Joi.number().min(1).max(10).optional().default(10),
+        limit: Joi.number().min(0).max(1000).optional().default(10),
     }),
 })
