@@ -1,8 +1,11 @@
 import { NextFunction, Request, Response } from 'express'
-import { FilterQuery } from 'mongoose'
+import { FilterQuery, Types } from 'mongoose'
+import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import escapeRegExp from '../utils/escapeRegExp'
+import { filterAllowedFields } from '../utils/filterAllowedFields'
 
 // TODO: Добавить guard admin
 // eslint-disable-next-line max-len
@@ -31,15 +34,53 @@ export const getCustomers = async (
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
+        // Проверка page и limit
+        const pageNum = Number(page)
+        let limitNum = Number(limit)
+
+        if (Number.isNaN(pageNum) || pageNum < 1) {
+            return next(
+                new BadRequestError('page должен быть положительным числом')
+            )
+        }
+
+        if (Number.isNaN(limitNum) || limitNum < 1) {
+            return next(
+                new BadRequestError('limit должен быть положительным числом')
+            )
+        }
+
+        // Нормализуем limit, если он больше 10
+        if (limitNum > 10) {
+            limitNum = 10
+        }
+
+        // Валидация дат и чисел
         if (registrationDateFrom) {
+            const date = new Date(registrationDateFrom as string)
+            if (Number.isNaN(date.getTime())) {
+                return next(
+                    new BadRequestError(
+                        'registrationDateFrom должен быть валидной датой'
+                    )
+                )
+            }
             filters.createdAt = {
                 ...filters.createdAt,
-                $gte: new Date(registrationDateFrom as string),
+                $gte: date,
             }
         }
 
         if (registrationDateTo) {
-            const endOfDay = new Date(registrationDateTo as string)
+            const date = new Date(registrationDateTo as string)
+            if (Number.isNaN(date.getTime())) {
+                return next(
+                    new BadRequestError(
+                        'registrationDateTo должен быть валидной датой'
+                    )
+                )
+            }
+            const endOfDay = new Date(date)
             endOfDay.setHours(23, 59, 59, 999)
             filters.createdAt = {
                 ...filters.createdAt,
@@ -48,14 +89,30 @@ export const getCustomers = async (
         }
 
         if (lastOrderDateFrom) {
+            const date = new Date(lastOrderDateFrom as string)
+            if (Number.isNaN(date.getTime())) {
+                return next(
+                    new BadRequestError(
+                        'lastOrderDateFrom должен быть валидной датой'
+                    )
+                )
+            }
             filters.lastOrderDate = {
                 ...filters.lastOrderDate,
-                $gte: new Date(lastOrderDateFrom as string),
+                $gte: date,
             }
         }
 
         if (lastOrderDateTo) {
-            const endOfDay = new Date(lastOrderDateTo as string)
+            const date = new Date(lastOrderDateTo as string)
+            if (Number.isNaN(date.getTime())) {
+                return next(
+                    new BadRequestError(
+                        'lastOrderDateTo должен быть валидной датой'
+                    )
+                )
+            }
+            const endOfDay = new Date(date)
             endOfDay.setHours(23, 59, 59, 999)
             filters.lastOrderDate = {
                 ...filters.lastOrderDate,
@@ -64,48 +121,80 @@ export const getCustomers = async (
         }
 
         if (totalAmountFrom) {
+            const num = Number(totalAmountFrom)
+            if (Number.isNaN(num)) {
+                return next(
+                    new BadRequestError('totalAmountFrom должен быть числом')
+                )
+            }
             filters.totalAmount = {
                 ...filters.totalAmount,
-                $gte: Number(totalAmountFrom),
+                $gte: num,
             }
         }
 
         if (totalAmountTo) {
+            const num = Number(totalAmountTo)
+            if (Number.isNaN(num)) {
+                return next(
+                    new BadRequestError('totalAmountTo должен быть числом')
+                )
+            }
             filters.totalAmount = {
                 ...filters.totalAmount,
-                $lte: Number(totalAmountTo),
+                $lte: num,
             }
         }
 
         if (orderCountFrom) {
+            const num = Number(orderCountFrom)
+            if (Number.isNaN(num)) {
+                return next(
+                    new BadRequestError('orderCountFrom должен быть числом')
+                )
+            }
             filters.orderCount = {
                 ...filters.orderCount,
-                $gte: Number(orderCountFrom),
+                $gte: num,
             }
         }
 
         if (orderCountTo) {
+            const num = Number(orderCountTo)
+            if (Number.isNaN(num)) {
+                return next(
+                    new BadRequestError('orderCountTo должен быть числом')
+                )
+            }
             filters.orderCount = {
                 ...filters.orderCount,
-                $lte: Number(orderCountTo),
+                $lte: num,
             }
         }
 
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
+            // Экранируем спецсимволы
+            const escapedSearch = escapeRegExp(search as string)
+            const searchRegex = new RegExp(escapedSearch, 'i')
+
+            // Ищем заказы по адресу доставки
             const orders = await Order.find(
                 {
-                    $or: [{ deliveryAddress: searchRegex }],
+                    deliveryAddress: { $regex: searchRegex },
                 },
                 '_id'
             )
 
-            const orderIds = orders.map((order) => order._id)
+            filters.$or = [{ name: searchRegex }]
 
-            filters.$or = [
-                { name: searchRegex },
-                { lastOrder: { $in: orderIds } },
-            ]
+            if (orders.length > 0) {
+                // Убедимся, что все ID - валидные ObjectId
+                const validOrderIds = orders
+                    .map((order) => order._id)
+                    .filter((id) => Types.ObjectId.isValid(id.toString()))
+
+                filters.$or.push({ lastOrder: { $in: validOrderIds } })
+            }
         }
 
         const sort: { [key: string]: any } = {}
@@ -116,8 +205,8 @@ export const getCustomers = async (
 
         const options = {
             sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (pageNum - 1) * limitNum,
+            limit: limitNum,
         }
 
         const users = await User.find(filters, null, options).populate([
@@ -137,15 +226,15 @@ export const getCustomers = async (
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalPages = Math.ceil(totalUsers / limitNum)
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limitNum,
             },
         })
     } catch (error) {
@@ -161,10 +250,20 @@ export const getCustomerById = async (
     next: NextFunction
 ) => {
     try {
+        // Проверяем валидность ID
+        if (!Types.ObjectId.isValid(req.params.id)) {
+            return next(new BadRequestError('Невалидный ID пользователя'))
+        }
+
         const user = await User.findById(req.params.id).populate([
             'orders',
             'lastOrder',
         ])
+
+        if (!user) {
+            return next(new NotFoundError('Пользователь не найден'))
+        }
+
         res.status(200).json(user)
     } catch (error) {
         next(error)
@@ -179,9 +278,18 @@ export const updateCustomer = async (
     next: NextFunction
 ) => {
     try {
+        // Проверяем валидность ID
+        if (!Types.ObjectId.isValid(req.params.id)) {
+            return next(new BadRequestError('Невалидный ID пользователя'))
+        }
+
+        // Разрешенные поля для обновления пользователя
+        const allowedFields = ['name', 'phone']
+        const updateData = filterAllowedFields(req.body, allowedFields)
+
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            updateData,
             {
                 new: true,
             }
@@ -207,6 +315,11 @@ export const deleteCustomer = async (
     next: NextFunction
 ) => {
     try {
+        // Проверяем валидность ID
+        if (!Types.ObjectId.isValid(req.params.id)) {
+            return next(new BadRequestError('Невалидный ID пользователя'))
+        }
+
         const deletedUser = await User.findByIdAndDelete(req.params.id).orFail(
             () =>
                 new NotFoundError(

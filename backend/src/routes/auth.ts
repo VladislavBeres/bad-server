@@ -9,11 +9,17 @@ import {
     updateCurrentUser,
 } from '../controllers/auth'
 import auth from '../middlewares/auth'
+import { verifyCsrf } from '../middlewares/csrf'
 
 const authRouter = Router()
 
+// Endpoint для получения CSRF токена
+authRouter.get('/csrf-token', (req, res) => {
+    res.json({ csrfToken: req.csrfToken?.() })
+})
+
 authRouter.get('/user', auth, getCurrentUser)
-authRouter.patch('/me', auth, updateCurrentUser)
+authRouter.patch('/me', auth, verifyCsrf, updateCurrentUser)
 authRouter.get('/user/roles', auth, getCurrentUserRoles)
 authRouter.post('/login', login)
 authRouter.get('/token', refreshAccessToken)

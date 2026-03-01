@@ -7,6 +7,7 @@ import ConflictError from '../errors/conflict-error'
 import NotFoundError from '../errors/not-found-error'
 import Product from '../models/product'
 import movingFile from '../utils/movingFile'
+import { sanitizeHtml } from '../utils/sanitize'
 
 // GET /product
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
@@ -42,6 +43,12 @@ const createProduct = async (
     try {
         const { description, category, price, title, image } = req.body
 
+        // Санитизируем текстовые поля
+        const sanitizedTitle = title ? sanitizeHtml(title) : title
+        const sanitizedDescription = description
+            ? sanitizeHtml(description)
+            : description
+
         // Переносим картинку из временной папки
         if (image) {
             movingFile(
@@ -52,11 +59,11 @@ const createProduct = async (
         }
 
         const product = await Product.create({
-            description,
+            description: sanitizedDescription,
             image,
             category,
             price,
-            title,
+            title: sanitizedTitle,
         })
         return res.status(constants.HTTP_STATUS_CREATED).send(product)
     } catch (error) {

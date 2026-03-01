@@ -9,14 +9,40 @@ import {
     updateOrder,
 } from '../controllers/order'
 import auth, { roleGuardMiddleware } from '../middlewares/auth'
-import { validateOrderBody } from '../middlewares/validations'
+import {
+    validateOrderBody,
+    validateSearchQuery,
+} from '../middlewares/validations'
 import { Role } from '../models/user'
+import { createOrderLimiter, searchLimiter } from '../middlewares/rateLimiter'
+import { verifyCsrf } from '../middlewares/csrf'
 
 const orderRouter = Router()
 
-orderRouter.post('/', auth, validateOrderBody, createOrder)
-orderRouter.get('/all', auth, getOrders)
-orderRouter.get('/all/me', auth, getOrdersCurrentUser)
+orderRouter.post(
+    '/',
+    auth,
+    verifyCsrf,
+    createOrderLimiter,
+    validateOrderBody,
+    createOrder
+)
+
+orderRouter.get(
+    '/all',
+    auth,
+    roleGuardMiddleware(Role.Admin),
+    searchLimiter,
+    validateSearchQuery,
+    getOrders
+)
+orderRouter.get(
+    '/all/me',
+    auth,
+    searchLimiter,
+    validateSearchQuery,
+    getOrdersCurrentUser
+)
 orderRouter.get(
     '/:orderNumber',
     auth,

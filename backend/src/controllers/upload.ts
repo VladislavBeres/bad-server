@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
 import BadRequestError from '../errors/bad-request-error'
+import fs from 'fs'
 
 export const uploadFile = async (
     req: Request,
@@ -9,6 +10,18 @@ export const uploadFile = async (
 ) => {
     if (!req.file) {
         return next(new BadRequestError('Файл не загружен'))
+    }
+    const MIN_FILE_SIZE = 2048 // 2kb
+    if (req.file.size < MIN_FILE_SIZE) {
+        // Удаляем файл
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error('Ошибка при удалении:', err)
+        })
+        return next(
+            new BadRequestError(
+                `Файл слишком маленький. Минимальный размер: 2kb`
+            )
+        )
     }
     try {
         const fileName = process.env.UPLOAD_PATH
